@@ -1,57 +1,48 @@
 import { Meteor } from 'meteor/meteor';
-const API_KEY = '?api_key=RGAPI-9729fb22-2d8f-471f-b3bf-4ca9336e37ff';
+import _ from 'lodash';
+const API_KEY = '?api_key=RGAPI-41e83154-bf77-49d7-8925-ed0b54c746f8';
 const ROOT_URL = `https://euw1.api.riotgames.com/lol`;
+var Future = Npm.require( 'fibers/future' );
 import { HTTP } from 'meteor/http';
 import { WebApp } from 'meteor/webapp';
 import axios from 'axios';
 import { JsonRoutes } from 'meteor/simple:json-routes';
 Meteor.startup(() => {
   // code to run on server at startup
-  WebApp.connectHandlers.use('/',(req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Accept", "application/json, text/plain, */*");
-    res.setHeader( "Pragma","no-cache");
-    res.setHeader("Access-Control-Allow-Methods","GET, PUT, POST, DELETE, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
-    //res.end(`Hello world from: ${Meteor.release}`);
-    return next();
-  });
-  JsonRoutes.setResponseHeaders({
-  "Cache-Control": "no-store",
-  "Pragma": "no-cache",
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, PUT, POST, DELETE, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With"
-});
-});
+}
+)
 
 Meteor.methods({
-  'fetchLol':(url)=>{
-    function simpleStringify (object){
-      var simpleObject = {};
-      for (var prop in object ){
-        if (!object.hasOwnProperty(prop)){
-          continue;
-        }
-        if (typeof(object[prop]) == 'object'){
-          continue;
-        }
-        if (typeof(object[prop]) == 'function'){
-          continue;
-        }
-        simpleObject[prop] = object[prop];
-      }
-      return JSON.stringify(simpleObject); // returns cleaned up JSON
-    };
-    const summonerName = 'chibredélaissé';
-    //const url = `${ROOT_URL}/summoner/v3/summoners/by-name/${summonerName}${API_KEY}`;
-    //const request =  axios.get(url).then((response)=>console.log(response));
-    //const request =  HTTP.call('GET',url);
+  'fetchLol':()=>{
+    const CHAMPIONS = '/static-data/v3/champions';
+    const request = `${ROOT_URL}${CHAMPIONS}${API_KEY}&locale=en_US&champListData=spells&champListData=stats&champListData=tags&tags=spells&tags=stats&dataById=false`;
 
-      return  axios.get("http://ddragon.leagueoflegends.com/cdn/6.24.1/data/en_US/champion.json").then((response)=>simpleStringify(response));
-      console.log("try")
-      //HTTP.get(url,{}, (error, result)=>{(!error)?console.log(result):console.log(error)});
+     return HTTP.call('GET', request, {})
+  },
+  "fetchSummoner":(name, ...options) => {
+    console.log(...options)
+    const settings = {...options, requestType:'by-name'};
+    const summonerName = encodeURI(name);
+    const request = `${ROOT_URL}/summoner/v3/summoners/${settings.requestType}/${summonerName}${API_KEY}`;
 
+    return HTTP.call('GET', request, {})
+  },
+  "fetchLeague":(summonerId) => {
+    const request = `${ROOT_URL}/league/v3/positions/by-summoner/${summonerId}${API_KEY}`;
+    return HTTP.call('GET', request, {})
+  },
+  "fetchMatch":(matchId) => {
+    const request = `${ROOT_URL}/match/v3/matches/${matchId}${API_KEY}`;
+    return HTTP.call('GET', request, {})
+  },
+  "fetchMatches":(matchesId = []) => {
+    const request =(matchId)=> `${ROOT_URL}/match/v3/matches/${matchId}${API_KEY}`;
 
+    const res = _.map(matchesId, match => HTTP.call('GET',request(match.gameId), {}) );
+    return res
+  },
+  "fetchRecentMatches":(accountId) => {
+    const request = `${ROOT_URL}/match/v3/matchlists/by-account/${accountId}/recent${API_KEY}`;
+    return HTTP.call('GET', request, {})
   }
 })
